@@ -17,4 +17,7 @@ public interface ChatMessageRepo extends JpaRepository<ChatMessage, Long> {
 
     // Delete all chat messages for a user
     void deleteByUserId(Long userId);
+    List<ChatMessage> findByCandidateIdOrderByCreatedAtAsc(Long candidateId);
+    void deleteByUserIdAndJobDescriptionIsNullAndCandidateIsNull(Long userId);
+    List<ChatMessage> findByUserIdAndJobDescriptionIsNullAndCandidateIsNullOrderByCreatedAtAsc(Long userId);
 }

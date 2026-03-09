@@ -114,4 +114,22 @@ public class CandidateController {
 
         return ResponseEntity.ok(response);
     }
+
+    // GET /api/candidates/pending
+    @GetMapping("/pending")
+    public ResponseEntity<ApiResponse<List<CandidateResponse>>> getPending() {
+        return ResponseEntity.ok(candidateService.getPendingCandidates());
+    }
+
+    // PUT /api/candidates/{id}/approve
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<ApiResponse<CandidateResponse>> approve(@PathVariable Long id) {
+        return ResponseEntity.ok(candidateService.approveCandidate(id));
+    }
+
+    // PUT /api/candidates/{id}/reject
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<CandidateResponse>> reject(@PathVariable Long id) {
+        return ResponseEntity.ok(candidateService.rejectCandidate(id));
+    }
 }

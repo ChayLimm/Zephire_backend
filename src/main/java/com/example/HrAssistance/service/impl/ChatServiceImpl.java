@@ -9,7 +9,7 @@ import com.example.HrAssistance.model.dto.request.ChatRequest;
 import com.example.HrAssistance.model.dto.response.ApiResponse;
 import com.example.HrAssistance.model.dto.response.CandidateResponse;
 import com.example.HrAssistance.model.dto.response.ChatMessageResponse;
-
+import com.example.HrAssistance.repositories.CandidateRepo;
 import com.example.HrAssistance.repositories.ChatMessageRepo;
 import com.example.HrAssistance.repositories.JobDescriptionRepo;
 import com.example.HrAssistance.service.ChatService;
@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,7 @@ public class ChatServiceImpl implements ChatService {
 
     private final ChatMessageRepo chatMessageRepo;
     private final JobDescriptionRepo jobDescriptionRepo;
+    private final CandidateRepo candidateRepo;
     private final CandidateServiceImpl candidateService;
     private final OllamaServiceImpl ollamaService;
 
@@ -39,128 +41,187 @@ public class ChatServiceImpl implements ChatService {
     public ApiResponse<ChatMessageResponse> sendMessage(ChatRequest request) {
 
         User currentUser = getCurrentUser();
-        String aiResponse;
+
         if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
             return ApiResponse.error("Message cannot be empty");
         }
 
-        if (request.getJdId() == null){
-            // 1. Save HR message
+        String aiResponse;
+        Candidate scopedCandidate = null;
+
+        // ── Case 1: Candidate-scoped chat ──
+        if (request.getCandidateId() != null) {
+            scopedCandidate = candidateRepo.findById(request.getCandidateId())
+                    .orElse(null);
+
+            if (scopedCandidate == null) {
+                return ApiResponse.error("Candidate not found");
+            }
+
+            // Save HR message
             ChatMessage hrMessage = ChatMessage.builder()
                     .user(currentUser)
                     .role(MessageRole.HR)
                     .message(request.getMessage())
-                    .jobDescription(getJdIfPresent(request.getJdId()))
+                    .candidate(scopedCandidate)
                     .build();
             chatMessageRepo.save(hrMessage);
 
-            // 2. Get all candidates for context
-            List<CandidateResponse> allCandidatesRes= candidateService.getAllCandidates().getData();
+            String prompt = buildCandidatePrompt(request.getMessage(), scopedCandidate);
+            aiResponse = ollamaService.chat(prompt);
+
+            // ── Case 2: Job-scoped chat ──
+        } else if (request.getJdId() != null) {
+            Optional<JobDescription> job = jobDescriptionRepo.findById(request.getJdId());
+            if (job.isEmpty()) {
+                return ApiResponse.error("Job description not found");
+            }
+
+            List<Candidate> allCandidates = new ArrayList<>();
+            job.get().getMatchResults().forEach(item -> allCandidates.add(item.getCandidate()));
+
+            // Save HR message
+            ChatMessage hrMessage = ChatMessage.builder()
+                    .user(currentUser)
+                    .role(MessageRole.HR)
+                    .message(request.getMessage())
+                    .jobDescription(job.get())
+                    .build();
+            chatMessageRepo.save(hrMessage);
+
+            String prompt = buildChatPrompt(request.getMessage(), allCandidates, job);
+            aiResponse = ollamaService.chat(prompt);
+
+            // ── Case 3: General chat (all candidates) ──
+        } else {
             List<Candidate> allCandidates = candidateService.getAllCandidates().getData()
                     .stream()
                     .map(CandidateResponse::toCandidate)
                     .collect(Collectors.toList());
 
-            String prompt = buildChatPrompt(request.getMessage(), allCandidates,null);
-
-            // 4. Send to Ollama
-             aiResponse = ollamaService.chat(prompt);
-        }else{
-            // 1. Save HR message
+            // Save HR message
             ChatMessage hrMessage = ChatMessage.builder()
                     .user(currentUser)
                     .role(MessageRole.HR)
                     .message(request.getMessage())
-                    .jobDescription(getJdIfPresent(request.getJdId()))
                     .build();
             chatMessageRepo.save(hrMessage);
 
-            // 2. Get all candidates in job idfor context
-            // 2. Get all candidates in job id for context
-            List<Candidate> allCandidates = new ArrayList<>();
-            Optional<JobDescription> job = jobDescriptionRepo.findById(request.getJdId());
-
-            if (job.isEmpty()) {
-                return ApiResponse.error("Job description not found");
-            }
-            job.get().getMatchResults().forEach(item -> {
-                allCandidates.add(item.getCandidate());
-            });
-
-            // 3. Build prompt with all CV data as context
-            String prompt = buildChatPrompt(request.getMessage(), allCandidates,job);
-
-            // 4. Send to Ollama
-             aiResponse = ollamaService.chat(prompt);
+            String prompt = buildChatPrompt(request.getMessage(), allCandidates, null);
+            aiResponse = ollamaService.chat(prompt);
         }
 
         if (aiResponse == null || aiResponse.trim().isEmpty()) {
             return ApiResponse.error("AI failed to respond, please try again");
         }
 
-        // 5. Save AI response
+        // Save AI response
         ChatMessage aiMessage = ChatMessage.builder()
                 .user(currentUser)
                 .role(MessageRole.ASSISTANT)
                 .message(aiResponse)
-                .jobDescription(getJdIfPresent(request.getJdId()))
+                .jobDescription(request.getJdId() != null ? getJdIfPresent(request.getJdId()) : null)
+                .candidate(scopedCandidate)
                 .build();
         ChatMessage saved = chatMessageRepo.save(aiMessage);
-
-        log.info("✅ Chat response saved for user: {}", currentUser.getUsername());
-
         return ApiResponse.success(toResponse(saved));
     }
 
     // ─────────────────────────────────────────
-    // Get chat history for current user
+    // Get general chat history
     // ─────────────────────────────────────────
     public ApiResponse<List<ChatMessageResponse>> getChatHistory() {
         User currentUser = getCurrentUser();
-
-        List<ChatMessage> messages = chatMessageRepo
-                .findByUserIdOrderByCreatedAtAsc(currentUser.getId());
-
+        List<ChatMessage> messages = chatMessageRepo.findByUserIdAndJobDescriptionIsNullAndCandidateIsNullOrderByCreatedAtAsc(currentUser.getId());
         if (messages.isEmpty()) {
             return ApiResponse.error("No chat history found");
         }
-
-        List<ChatMessageResponse> response = messages.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-
-        return ApiResponse.success(response);
+        return ApiResponse.success(messages.stream().map(this::toResponse).collect(Collectors.toList()));
     }
 
+    // ─────────────────────────────────────────
+    // Get job-scoped chat history
+    // ─────────────────────────────────────────
     public ApiResponse<List<ChatMessageResponse>> getChatHistoryByJobId(long jobId) {
-        User currentUser = getCurrentUser();
-
         List<ChatMessage> messages = chatMessageRepo
                 .findByJobDescriptionIdOrderByCreatedAtAsc(jobId);
-
         if (messages.isEmpty()) {
             return ApiResponse.error("No chat history found");
         }
-
-        List<ChatMessageResponse> response = messages.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-
-        return ApiResponse.success(response);
+        return ApiResponse.success(messages.stream().map(this::toResponse).collect(Collectors.toList()));
     }
 
     // ─────────────────────────────────────────
-    // Clear chat history for current user
+    // Get candidate-scoped chat history
     // ─────────────────────────────────────────
+    public ApiResponse<List<ChatMessageResponse>> getChatHistoryByCandidateId(long candidateId) {
+        List<ChatMessage> messages = chatMessageRepo
+                .findByCandidateIdOrderByCreatedAtAsc(candidateId);
+        if (messages.isEmpty()) {
+            return ApiResponse.error("No chat history found");
+        }
+        return ApiResponse.success(messages.stream().map(this::toResponse).collect(Collectors.toList()));
+    }
+
+    // ─────────────────────────────────────────
+    // Clear chat history
+    // ─────────────────────────────────────────
+
+    @Transactional
     public ApiResponse<String> clearHistory() {
         User currentUser = getCurrentUser();
-        chatMessageRepo.deleteByUserId(currentUser.getId());
-        log.info("✅ Chat history cleared for user: {}", currentUser.getUsername());
+        chatMessageRepo.deleteByUserIdAndJobDescriptionIsNullAndCandidateIsNull(currentUser.getId());
         return ApiResponse.success("Chat history cleared", null);
     }
 
     // ─────────────────────────────────────────
-    // Build chat prompt with all CV context
+    // Build prompt scoped to a single candidate
+    // ─────────────────────────────────────────
+    private String buildCandidatePrompt(String message, Candidate candidate) {
+        String candidateContext = """
+                ID: %d
+                Name: %s
+                Email: %s
+                Phone: %s
+                Domain: %s
+                Position: %s
+                Experience: %d years
+                Skills: %s
+                Stack: %s
+                CV Summary: %s
+                """.formatted(
+                candidate.getId(),
+                candidate.getName(),
+                candidate.getEmail(),
+                candidate.getPhone() != null ? candidate.getPhone() : "N/A",
+                candidate.getDomain(),
+                candidate.getPosition(),
+                candidate.getExpYears() != null ? candidate.getExpYears() : 0,
+                candidate.getSkills() != null ? candidate.getSkills() : "[]",
+                candidate.getStack() != null ? candidate.getStack() : "[]",
+                candidate.getCvJson() != null ? candidate.getCvJson() : "N/A"
+        );
+
+        return """
+                You are Maya, a smart HR assistant helping recruiters evaluate a specific candidate.
+                
+                Guidelines:
+                - Answer conversationally and confidently about this candidate
+                - Only use information from the candidate profile below
+                - Never invent, assume, or infer anything not in the data
+                - Keep answers concise unless detail is requested
+                - Never ask follow-up questions or offer further help
+                
+                CANDIDATE PROFILE:
+                %s
+                
+                HR QUESTION:
+                %s
+                """.formatted(candidateContext, message);
+    }
+
+    // ─────────────────────────────────────────
+    // Build prompt for job or general chat
     // ─────────────────────────────────────────
     private String buildChatPrompt(String message, List<Candidate> candidates, Optional<JobDescription> job) {
 
@@ -177,60 +238,50 @@ public class ChatServiceImpl implements ChatService {
                 .collect(Collectors.joining("\n"))
                 : "No candidate data available";
 
-        if(job != null && job.isPresent()){
+        if (job != null && job.isPresent()) {
             return """
                     You are Maya, a smart HR assistant helping recruiters find the right candidates quickly.
                     
-                    You have direct access to the candidate database and answer questions naturally — as if you already know the data, not as if you're "reading" or "searching" it in real time.
-                    
                     Guidelines:
                     - Answer conversationally and confidently, like a knowledgeable colleague
-                    - When filtering or listing candidates, present results clearly but naturally (e.g. "Here are the 5 candidates who match..." not "Based on the data provided...")
-                    - Never say things like "based on the data below", "I found in the database", or "you provided"
-                    - If no candidates match, say so simply: "No candidates match that criteria."
+                    - Present results clearly but naturally
+                    - Never say "based on the data below" or "you provided"
+                    - If no candidates match, say so simply
                     - Never invent information not in the data
                     - Keep answers concise unless detail is requested
-                    - Answer straight to the point, if no match, answer no match.
-                    - Never ask follow-up questions or offer further help (e.g. "Would you like me to...", "Do you want me to..."). Just answer what was asked and stop.
-                    IMPORTANT: Do not invent, assume, or infer any information. If it is not in the candidate data, it does not exist.
-                JOB DESCRIPTION
-                %s
-                                
-                Candidate data::
-                %s
-                                
-                HR QUESTION:
-                %s
-                """.formatted(job.get(),candidateContext, message);
+                    - Never ask follow-up questions or offer further help
+                    
+                    JOB DESCRIPTION:
+                    %s
+                    
+                    CANDIDATE DATA:
+                    %s
+                    
+                    HR QUESTION:
+                    %s
+                    """.formatted(job.get(), candidateContext, message);
         }
 
         return """
-                You are Maya, a smart HR assistant helping recruiters find the right candidates quickly.
-                    
-                    You have direct access to the candidate database and answer questions naturally — as if you already know the data, not as if you're "reading" or "searching" it in real time.
-                    
-                    Guidelines:
-                    - Answer conversationally and confidently, like a knowledgeable colleague
-                    - When filtering or listing candidates, present results clearly but naturally (e.g. "Here are the 5 candidates who match..." not "Based on the data provided...")
-                    - Never say things like "based on the data below", "I found in the database", or "you provided"
-                    - If no candidates match, say so simply: "No candidates match that criteria."
-                    - Never invent information not in the data
-                    - Keep answers concise unless detail is requested
-                    - Answer straight to the point, if no match, answer no match.
-                    - Never ask follow-up questions or offer further help (e.g. "Would you like me to...", "Do you want me to..."). Just answer what was asked and stop.
-                    IMPORTANT: Do not invent, assume, or infer any information. If it is not in the candidate data, it does not exist.
-   
+                You are Sok, a smart HR assistant helping recruiters find the right candidates quickly.
+                
+                Guidelines:
+                - Answer conversationally and confidently, like a knowledgeable colleague
+                - Present results clearly but naturally
+                - Never say "based on the data below" or "you provided"
+                - If no candidates match, say so simply
+                - Never invent information not in the data
+                - Keep answers concise unless detail is requested
+                - Never ask follow-up questions or offer further help
+                
                 CANDIDATE DATABASE:
                 %s
-                                
+                
                 HR QUESTION:
                 %s
                 """.formatted(candidateContext, message);
     }
 
-    // ─────────────────────────────────────────
-    // Get JD entity if ID provided
-    // ─────────────────────────────────────────
     private JobDescription getJdIfPresent(Long jdId) {
         if (jdId == null) return null;
         return jobDescriptionRepo.findById(jdId).orElse(null);

@@ -15,4 +15,5 @@ public interface ChatService {
     ApiResponse<List<ChatMessageResponse>> getChatHistoryByJobId(long jobId);
 
     ApiResponse<String> clearHistory();
+    ApiResponse<List<ChatMessageResponse>> getChatHistoryByCandidateId(long candidateId);
 }

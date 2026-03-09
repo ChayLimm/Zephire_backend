@@ -41,4 +41,10 @@ public class ChatMessage {
     @JoinColumn(name = "jd_id", nullable = true)
     @JsonIgnore
     private JobDescription jobDescription;
+
+    // ← add this
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "candidate_id", nullable = true)
+    @JsonIgnore
+    private Candidate candidate;
 }

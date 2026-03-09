@@ -1,5 +1,7 @@
 package com.example.HrAssistance.model;
 
+import com.example.HrAssistance.enums.CandidateSource;
+import com.example.HrAssistance.enums.CandidateStatus;
 import com.example.HrAssistance.model.dto.request.CandidateRequest;
 import com.example.HrAssistance.model.dto.response.CandidateResponse;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -63,6 +65,17 @@ public class Candidate {
     @Column(updatable = false)
     private LocalDateTime uploadedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source")
+    @Builder.Default
+    private CandidateSource source = CandidateSource.HR_UPLOADED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    @Builder.Default
+    private CandidateStatus status = CandidateStatus.APPROVED;
+
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uploaded_by")
     @JsonIgnore
@@ -73,26 +86,23 @@ public class Candidate {
     private List<MatchResult> matchResults;
 
     public CandidateResponse toResponse() {
-        CandidateResponse data = new CandidateResponse();
-        data.setId(this.id);
-        data.setName(this.name);
-        data.setEmail(this.email);
-        data.setPhone(this.phone);
-        data.setDomain(this.domain);
-        data.setPosition(this.position);
-        data.setExpYears(this.expYears);
-        data.setFileName(this.fileName);
-        data.setCvJson(this.cvJson);
-        data.setUploadedAt(this.uploadedAt);
-        data.setUploadedBy(
-                this.uploadedBy != null ? this.uploadedBy.getUsername() : null
-        );
-
-        // Convert JSON string → List<String>
-        data.setSkills(parseJsonToList(this.skills));
-        data.setStack(parseJsonToList(this.stack));
-
-        return data;
+        return CandidateResponse.builder()
+                .id(this.getId())
+                .name(this.getName())
+                .email(this.getEmail())
+                .phone(this.getPhone())
+                .domain(this.getDomain())
+                .position(this.getPosition())
+                .expYears(this.getExpYears())
+                .fileName(this.getFileName())
+                .cvJson(this.getCvJson())
+                .uploadedAt(this.getUploadedAt())
+                .source(this.getSource())      // ← add
+                .status(this.getStatus())      // ← add
+                .uploadedBy(this.getUploadedBy() != null
+                        ? this.getUploadedBy().getUsername()
+                        : null)
+                .build();
     }
 
     private List<String> parseJsonToList(String json) {

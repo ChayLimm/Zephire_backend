@@ -1,5 +1,8 @@
 package com.example.HrAssistance.service.impl;
+import com.example.HrAssistance.model.dto.request.PublicApplyRequest;
 
+import com.example.HrAssistance.enums.CandidateSource;
+import com.example.HrAssistance.enums.CandidateStatus;
 import com.example.HrAssistance.model.Candidate;
 import com.example.HrAssistance.model.User;
 import com.example.HrAssistance.model.dto.request.CandidateRequest;
@@ -128,16 +131,13 @@ public class CandidateServiceImpl implements CandidateService {
     // Get all candidates
     // ─────────────────────────────────────────
     public ApiResponse<List<CandidateResponse>> getAllCandidates() {
-        List<Candidate> candidates = candidateRepo.findAll();
-
+        List<Candidate> candidates = candidateRepo.findByStatus(CandidateStatus.APPROVED);
         if (candidates.isEmpty()) {
             return ApiResponse.error("No candidates found");
         }
-
         List<CandidateResponse> response = candidates.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
-
         return ApiResponse.success(response);
     }
 
@@ -289,4 +289,93 @@ public class CandidateServiceImpl implements CandidateService {
                         : null)
                 .build();
     }
+    public ApiResponse<CandidateResponse> publicApply(MultipartFile file, PublicApplyRequest request) {
+
+        String filePath = saveFile(file);
+        if (filePath == null) {
+            return ApiResponse.error("Failed to save PDF file");
+        }
+
+        String rawText = pdfService.extractText(file);
+
+        Candidate candidate = Candidate.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .domain(request.getDomain())
+                .position(request.getPosition())
+                .expYears(request.getExpYears())
+                .fileName(file.getOriginalFilename())
+                .filePath(filePath)
+                .cvRaw(rawText)
+                .source(CandidateSource.SELF_APPLIED)
+                .status(CandidateStatus.PENDING)
+                .build();
+
+        Candidate saved = candidateRepo.save(candidate);
+        log.info("✅ Self-applied candidate saved (PENDING): {}", saved.getName());
+
+        return ApiResponse.success("Application submitted successfully", toResponse(saved));
+    }
+
+    // ─────────────────────────────────────────
+// Approve — triggers Ollama processing
+// ─────────────────────────────────────────
+    public ApiResponse<CandidateResponse> approveCandidate(Long id) {
+        Candidate candidate = candidateRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Candidate not found"));
+
+        // Run Ollama on the raw CV text
+        if (candidate.getCvRaw() != null) {
+            String compressionPrompt = buildCompressionPrompt(candidate.getCvRaw());
+            String rawJson = ollamaService.chat(compressionPrompt);
+            String cvJson = ollamaService.extractJson(rawJson);
+
+            if (cvJson != null) {
+                try {
+                    JsonNode node = objectMapper.readTree(cvJson);
+                    if (candidate.getPosition() == null) candidate.setPosition(node.path("position").asText(null));
+                    if (candidate.getExpYears() == null) candidate.setExpYears(node.path("exp_years").asInt(0));
+                    candidate.setSkills(node.path("skills").toString());
+                    candidate.setStack(node.path("stack").toString());
+                    candidate.setCvJson(cvJson);
+                } catch (Exception e) {
+                    log.warn("⚠️ Could not parse Ollama response: {}", e.getMessage());
+                }
+            }
+        }
+
+        candidate.setStatus(CandidateStatus.APPROVED);
+        candidateRepo.save(candidate);
+        log.info("✅ Candidate approved: {}", candidate.getName());
+
+        return ApiResponse.success("Candidate approved", toResponse(candidate));
+    }
+
+    // ─────────────────────────────────────────
+// Reject candidate
+// ─────────────────────────────────────────
+    public ApiResponse<CandidateResponse> rejectCandidate(Long id) {
+        Candidate candidate = candidateRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Candidate not found"));
+
+        candidate.setStatus(CandidateStatus.REJECTED);
+        candidateRepo.save(candidate);
+        log.info("✅ Candidate rejected: {}", candidate.getName());
+
+        return ApiResponse.success("Candidate rejected", toResponse(candidate));
+    }
+
+    // ─────────────────────────────────────────
+// Get pending candidates
+// ─────────────────────────────────────────
+    public ApiResponse<List<CandidateResponse>> getPendingCandidates() {
+        List<Candidate> pending = candidateRepo.findByStatus(CandidateStatus.PENDING);
+        List<CandidateResponse> response = pending.stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+        return ApiResponse.success(response);
+    }
+
+
 }

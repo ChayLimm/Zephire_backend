@@ -44,10 +44,15 @@ public class ChatController {
         return ResponseEntity.ok(chatService.getChatHistoryByJobId(id));
     }
 
-
     // DELETE /api/chat/history
     @DeleteMapping("/history")
     public ResponseEntity<ApiResponse<String>> clearHistory() {
         return ResponseEntity.ok(chatService.clearHistory());
+    }
+
+    @GetMapping("/history/candidate/{candidateId}")
+    public ResponseEntity<ApiResponse<List<ChatMessageResponse>>> getCandidateHistory(
+            @PathVariable Long candidateId) {
+        return ResponseEntity.ok(chatService.getChatHistoryByCandidateId(candidateId)); // ← fix name
     }
 }

@@ -1,5 +1,7 @@
 package com.example.HrAssistance.model.dto.response;
 
+import com.example.HrAssistance.enums.CandidateSource;
+import com.example.HrAssistance.enums.CandidateStatus;
 import com.example.HrAssistance.model.Candidate;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -55,6 +57,12 @@ public class CandidateResponse {
     @JsonProperty("uploaded_by")
     private String uploadedBy;         // HR user name
 
+    @JsonProperty("source")
+    private CandidateSource source;
+
+    @JsonProperty("status")
+    private CandidateStatus status;
+
     public Candidate toCandidate(){
         Candidate candidate = new Candidate();
         candidate.setId(this.id);
@@ -64,6 +72,8 @@ public class CandidateResponse {
         candidate.setDomain(this.domain);
         candidate.setPosition(this.position);
         candidate.setExpYears(this.expYears);
+        candidate.setSource(this.source);
+        candidate.setStatus(this.status);
 
         // Convert List<String> to JSON string for skills and stack
         if (this.skills != null) {
