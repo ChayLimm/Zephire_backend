@@ -1,5 +1,6 @@
 package com.example.HrAssistance.controller;
 
+import com.example.HrAssistance.model.dto.request.CVUploadRequest;
 import com.example.HrAssistance.model.dto.request.CandidateRequest;
 import com.example.HrAssistance.model.dto.request.UploadCVRequest;
 import com.example.HrAssistance.model.dto.response.ApiResponse;
@@ -28,11 +29,14 @@ public class CandidateController {
     // POST /api/candidates/upload
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<CandidateResponse>> uploadCv(
-        @RequestParam("file") MultipartFile file,
-        @RequestBody UploadCVRequest cvRequest,
-        @RequestParam("domain") String domain){
+            @ModelAttribute CVUploadRequest request
 
-        ApiResponse<CandidateResponse> response = candidateService.uploadCv(file,domain);
+//        @RequestParam("file") MultipartFile file,
+//        @RequestBody UploadCVRequest cvRequest,
+//        @RequestParam("domain") String domain
+    ){
+
+        ApiResponse<CandidateResponse> response = candidateService.uploadCv(request);
 
         if (!response.isSuccess()) {
             return ResponseEntity.badRequest().body(response);

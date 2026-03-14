@@ -1,6 +1,7 @@
 package com.example.HrAssistance.service;
 
 import com.example.HrAssistance.model.Candidate;
+import com.example.HrAssistance.model.dto.request.CVUploadRequest;
 import com.example.HrAssistance.model.dto.request.CandidateRequest;
 import com.example.HrAssistance.model.dto.response.ApiResponse;
 import com.example.HrAssistance.model.dto.response.CandidateResponse;
@@ -10,7 +11,7 @@ import java.util.List;
 
 public interface CandidateService {
 
-    ApiResponse<CandidateResponse> uploadCv(MultipartFile file, String newDomain);
+    ApiResponse<CandidateResponse> uploadCv(CVUploadRequest request);
 
     ApiResponse<CandidateResponse> updateCandidate(Long id, CandidateRequest request);
 

@@ -44,11 +44,11 @@ public class PdfServiceImpl implements PdfService {
                 return null;
             }
 
-            log.info("✅ Extracted {} characters from PDF", text.length());
+            log.info("Extracted {} characters from PDF", text.length());
             return text;
 
         } catch (Exception e) {
-            log.error("❌ PDF extraction failed: {}", e.getMessage());
+            log.error("PDF extraction failed: {}", e.getMessage());
             return null;
         }
     }

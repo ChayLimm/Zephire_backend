@@ -1,5 +1,5 @@
 package com.example.HrAssistance.service.impl;
-import com.example.HrAssistance.model.dto.request.PublicApplyRequest;
+import com.example.HrAssistance.model.dto.request.CVUploadRequest;
 
 import com.example.HrAssistance.enums.CandidateSource;
 import com.example.HrAssistance.enums.CandidateStatus;
@@ -41,19 +41,18 @@ public class CandidateServiceImpl implements CandidateService {
     // ─────────────────────────────────────────
     // Upload CV — full flow
     // ─────────────────────────────────────────
-    public ApiResponse<CandidateResponse> uploadCv(MultipartFile file,String newDomain) {
-
+    public ApiResponse<CandidateResponse> uploadCv(CVUploadRequest request) {
         // 1. Get current logged-in HR user
         User currentUser = getCurrentUser();
 
         // 2. Extract text from PDF
-        String rawText = pdfService.extractText(file);
+        String rawText = pdfService.extractText(request.getFile());
         if (rawText == null) {
             return ApiResponse.error("Failed to extract text from PDF");
         }
 
         // 3. Save PDF file to server
-        String filePath = saveFile(file);
+        String filePath = saveFile(request.getFile());
         if (filePath == null) {
             return ApiResponse.error("Failed to save PDF file");
         }
@@ -76,11 +75,11 @@ public class CandidateServiceImpl implements CandidateService {
         try {
             JsonNode node = objectMapper.readTree(cvJson);
             name     = node.path("name").asText(null);
-            email    = node.path("email").asText(null);
-            phone    = node.path("phone").asText(null);
+            email    = request.getEmail(); //node.path("email").asText(null);
+            phone    = request.getPhone();/// node.path("phone").asText(null);
 //            domain   = node.path("domain").asText(null);
-            position = node.path("position").asText(null);
-            expYears = node.path("exp_years").asInt(0);
+            position = request.getPosition(); //node.path("position").asText(null);
+            expYears = request.getExpYears(); //node.path("exp_years").asInt(0);
             skills   = node.path("skills").toString();
             stack    = node.path("stack").toString();
         } catch (Exception e) {
@@ -92,12 +91,12 @@ public class CandidateServiceImpl implements CandidateService {
                 .name(name)
                 .email(email)
                 .phone(phone)
-                .domain(newDomain)
+                .domain(request.getDomain())
                 .position(position)
                 .expYears(expYears)
                 .skills(skills)
                 .stack(stack)
-                .fileName(file.getOriginalFilename())
+                .fileName(request.getFile().getOriginalFilename())
                 .filePath(filePath)
                 .cvRaw(rawText)
                 .cvJson(cvJson)
@@ -199,8 +198,7 @@ public class CandidateServiceImpl implements CandidateService {
             String fileName = System.currentTimeMillis()
                     + "_" + file.getOriginalFilename();
             Path filePath = uploadPath.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath,
-                    StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             log.info("✅ File saved: {}", filePath);
             return filePath.toString();
@@ -289,7 +287,7 @@ public class CandidateServiceImpl implements CandidateService {
                         : null)
                 .build();
     }
-    public ApiResponse<CandidateResponse> publicApply(MultipartFile file, PublicApplyRequest request) {
+    public ApiResponse<CandidateResponse> publicApply(MultipartFile file, CVUploadRequest request) {
 
         String filePath = saveFile(file);
         if (filePath == null) {
