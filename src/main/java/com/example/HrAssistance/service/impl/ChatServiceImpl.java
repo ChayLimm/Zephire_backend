@@ -33,7 +33,7 @@ public class ChatServiceImpl implements ChatService {
     private final JobDescriptionRepo jobDescriptionRepo;
     private final CandidateRepo candidateRepo;
     private final CandidateServiceImpl candidateService;
-    private final OllamaServiceImpl ollamaService;
+    private final OpenRouterAIServiceImpl aiService;
 
     // ─────────────────────────────────────────
     // Send message — HR asks, AI answers
@@ -57,7 +57,6 @@ public class ChatServiceImpl implements ChatService {
             if (scopedCandidate == null) {
                 return ApiResponse.error("Candidate not found");
             }
-
             // Save HR message
             ChatMessage hrMessage = ChatMessage.builder()
                     .user(currentUser)
@@ -68,7 +67,7 @@ public class ChatServiceImpl implements ChatService {
             chatMessageRepo.save(hrMessage);
 
             String prompt = buildCandidatePrompt(request.getMessage(), scopedCandidate);
-            aiResponse = ollamaService.chat(prompt);
+            aiResponse = aiService.chat(prompt);
 
             // ── Case 2: Job-scoped chat ──
         } else if (request.getJdId() != null) {
@@ -90,14 +89,11 @@ public class ChatServiceImpl implements ChatService {
             chatMessageRepo.save(hrMessage);
 
             String prompt = buildChatPrompt(request.getMessage(), allCandidates, job);
-            aiResponse = ollamaService.chat(prompt);
+            aiResponse = aiService.chat(prompt);
 
             // ── Case 3: General chat (all candidates) ──
         } else {
-            List<Candidate> allCandidates = candidateService.getAllCandidates().getData()
-                    .stream()
-                    .map(CandidateResponse::toCandidate)
-                    .collect(Collectors.toList());
+            List<Candidate> allCandidates = candidateRepo.findAll();
 
             // Save HR message
             ChatMessage hrMessage = ChatMessage.builder()
@@ -108,7 +104,7 @@ public class ChatServiceImpl implements ChatService {
             chatMessageRepo.save(hrMessage);
 
             String prompt = buildChatPrompt(request.getMessage(), allCandidates, null);
-            aiResponse = ollamaService.chat(prompt);
+            aiResponse = aiService.chat(prompt);
         }
 
         if (aiResponse == null || aiResponse.trim().isEmpty()) {
@@ -227,20 +223,21 @@ public class ChatServiceImpl implements ChatService {
 
         String candidateContext = candidates != null && !candidates.isEmpty()
                 ? candidates.stream()
-                .map(c -> "ID:%d | %s | %s | %s | exp:%d yrs | skills:%s".formatted(
+                .map(c -> "ID:%d | %s | %s | %s | exp:%d yrs | skills:%s | CV:%s".formatted(
                         c.getId(),
                         c.getName(),
                         c.getDomain(),
                         c.getPosition(),
                         c.getExpYears() != null ? c.getExpYears() : 0,
-                        c.getSkills() != null ? c.getSkills() : "[]"
+                        c.getSkills() != null ? c.getSkills() : "[]",
+                        c.getCvRaw()
                 ))
                 .collect(Collectors.joining("\n"))
                 : "No candidate data available";
 
         if (job != null && job.isPresent()) {
             return """
-                    You are Maya, a smart HR assistant helping recruiters find the right candidates quickly.
+                    You are Sok, a smart HR assistant helping recruiters find the right candidates quickly.
                     
                     Guidelines:
                     - Answer conversationally and confidently, like a knowledgeable colleague

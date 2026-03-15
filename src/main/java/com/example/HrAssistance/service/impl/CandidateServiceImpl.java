@@ -32,7 +32,7 @@ public class CandidateServiceImpl implements CandidateService {
 
     private final CandidateRepo candidateRepo;
     private final PdfServiceImpl pdfService;
-    private final OllamaServiceImpl ollamaService;
+    private final OpenRouterAIServiceImpl aiService;
     private final ObjectMapper objectMapper;
 
     @Value("${app.upload.dir:uploads/}")
@@ -59,8 +59,8 @@ public class CandidateServiceImpl implements CandidateService {
 
         // 4. Send raw text to Ollama for compression
         String compressionPrompt = buildCompressionPrompt(rawText);
-        String rawJson = ollamaService.chat(compressionPrompt);
-        String cvJson = ollamaService.extractJson(rawJson);
+        String rawJson = aiService.chat(compressionPrompt);
+        String cvJson = aiService.extractJson(rawJson);
 
         if (cvJson == null) {
             return ApiResponse.error("Failed to compress CV via LLM");
@@ -326,8 +326,8 @@ public class CandidateServiceImpl implements CandidateService {
         // Run Ollama on the raw CV text
         if (candidate.getCvRaw() != null) {
             String compressionPrompt = buildCompressionPrompt(candidate.getCvRaw());
-            String rawJson = ollamaService.chat(compressionPrompt);
-            String cvJson = ollamaService.extractJson(rawJson);
+            String rawJson = aiService.chat(compressionPrompt);
+            String cvJson = aiService.extractJson(rawJson);
 
             if (cvJson != null) {
                 try {

@@ -33,7 +33,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     private final JobDescriptionRepo jobDescriptionRepo;
     private final MatchResultRepo matchResultRepo;
     private final CandidateServiceImpl candidateService;
-    private final OllamaServiceImpl ollamaService;
+    private final OpenRouterAIServiceImpl aiService;
     private final ObjectMapper objectMapper;
 
     // ─────────────────────────────────────────
@@ -79,8 +79,8 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
         String prompt = buildMatchingPrompt(request, filtered);
 
         // 4. Send to Ollama
-        String rawResponse = ollamaService.chat(prompt);
-        String jsonResponse = ollamaService.extractJson(rawResponse);
+        String rawResponse = aiService.chat(prompt);
+        String jsonResponse = aiService.extractJson(rawResponse);
 
         if (jsonResponse == null) {
             return ApiResponse.error("LLM failed to return valid matching results");
