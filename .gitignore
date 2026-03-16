@@ -31,3 +31,4 @@ build/
 
 # Uploads folder (CV files)
 uploads/
+.env
