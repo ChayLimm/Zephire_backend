@@ -5,6 +5,7 @@ package com.example.HrAssistance.model;
 
 import com.example.HrAssistance.enums.EmailType;
 import com.example.HrAssistance.enums.MessageRole;
+import com.example.HrAssistance.model.dto.response.EmailResponse;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonKey;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -50,7 +51,20 @@ public class Email {
     @JoinColumn(name = "sent_by")
     private User sentBy;
 
-//    public EmailResponse toResponse(){
-//
-//    }
+    public EmailResponse toResponse() {
+        return EmailResponse.builder()
+                .id(this.id)
+                .toEmail(this.toEmail)
+                .subject(this.subject)
+                .body(this.body)
+                .type(this.type != null ? this.type.name() : null)
+                .status(this.status)
+                .sentAt(this.sentAt != null ? this.sentAt.toString() : null)
+                .meetingDate(this.meetingDate)
+                .meetingTime(this.meetingTime)
+                .meetingLocation(this.meetingLocation)
+                .candidateId(this.candidate != null ? this.candidate.getId() : null)
+                .candidateName(this.candidate != null ? this.candidate.getName() : null)
+                .build();
+    }
 }
