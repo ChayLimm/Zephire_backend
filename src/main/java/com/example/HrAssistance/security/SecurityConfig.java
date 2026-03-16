@@ -64,7 +64,7 @@ public class SecurityConfig {
 
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",   // React frontend
-                "https://somhr-7p2fatc6z-chaylimms-projects.vercel.app/login",
+                "https://somhr-7p2fatc6z-chaylimms-projects.vercel.app",
                 "https://mustang-tidy-usefully.ngrok-free.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
