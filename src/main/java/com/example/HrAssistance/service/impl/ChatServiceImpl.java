@@ -38,6 +38,7 @@ public class ChatServiceImpl implements ChatService {
     // ─────────────────────────────────────────
     // Send message — HR asks, AI answers
     // ─────────────────────────────────────────
+    @Transactional
     public ApiResponse<ChatMessageResponse> sendMessage(ChatRequest request) {
 
         User currentUser = getCurrentUser();
@@ -126,6 +127,7 @@ public class ChatServiceImpl implements ChatService {
     // ─────────────────────────────────────────
     // Get general chat history
     // ─────────────────────────────────────────
+    @Transactional(readOnly = true)
     public ApiResponse<List<ChatMessageResponse>> getChatHistory() {
         User currentUser = getCurrentUser();
         List<ChatMessage> messages = chatMessageRepo.findByUserIdAndJobDescriptionIsNullAndCandidateIsNullOrderByCreatedAtAsc(currentUser.getId());
@@ -138,6 +140,7 @@ public class ChatServiceImpl implements ChatService {
     // ─────────────────────────────────────────
     // Get job-scoped chat history
     // ─────────────────────────────────────────
+    @Transactional(readOnly = true)
     public ApiResponse<List<ChatMessageResponse>> getChatHistoryByJobId(long jobId) {
         List<ChatMessage> messages = chatMessageRepo
                 .findByJobDescriptionIdOrderByCreatedAtAsc(jobId);
@@ -150,6 +153,7 @@ public class ChatServiceImpl implements ChatService {
     // ─────────────────────────────────────────
     // Get candidate-scoped chat history
     // ─────────────────────────────────────────
+    @Transactional(readOnly = true)
     public ApiResponse<List<ChatMessageResponse>> getChatHistoryByCandidateId(long candidateId) {
         List<ChatMessage> messages = chatMessageRepo
                 .findByCandidateIdOrderByCreatedAtAsc(candidateId);
