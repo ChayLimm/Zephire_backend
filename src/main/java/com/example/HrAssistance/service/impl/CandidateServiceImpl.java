@@ -111,15 +111,14 @@ public class CandidateServiceImpl implements CandidateService {
 
 
     public ApiResponse<CandidateResponse> updateCandidate(Long id, CandidateRequest request) {
-        Candidate data = candidateRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Candidate not found"));
+        Candidate data = candidateRepo.findById(id).orElseThrow(() -> new RuntimeException("Candidate not found"));
 
-        if (request.getDomain() != null) data.setDomain(request.getDomain());
-        if (request.getEmail() != null) data.setEmail(request.getEmail());
-        if (request.getName() != null) data.setName(request.getName());
-        if (request.getPhone() != null) data.setPhone(request.getPhone());
-        if (request.getExpYears() != null) data.setExpYears(request.getExpYears());
-        if (request.getPosition() != null) data.setPosition(request.getPosition());
+        data.setDomain(request.getDomain());
+        data.setEmail(request.getEmail());
+        data.setName(request.getName());
+        data.setPhone(request.getPhone());
+        data.setExpYears(request.getExpYears());
+        data.setPosition(request.getPosition());
 
         candidateRepo.save(data);
 

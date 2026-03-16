@@ -62,10 +62,10 @@ public class EmailServiceImpl implements EmailService {
                         .build();
 
                 emailRepo.save(email);
-                log.info("✅ Email sent to {}", payload.getEmail());
+                log.info("Email sent to {}", payload.getEmail());
 
             } catch (Exception e) {
-                log.error("❌ Failed to send email to {}: {}", payload.getEmail(), e.getMessage());
+                log.error("Failed to send email to {}: {}", payload.getEmail(), e.getMessage());
 
                 // Save failed record
                 Email failed = Email.builder()

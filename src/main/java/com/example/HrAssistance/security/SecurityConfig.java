@@ -68,7 +68,7 @@ public class SecurityConfig {
                 "https://mustang-tidy-usefully.ngrok-free.app",
                 "https://somhr.vercel.app"
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
