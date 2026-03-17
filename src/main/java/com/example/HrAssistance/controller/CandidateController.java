@@ -45,8 +45,6 @@ public class CandidateController {
         return ResponseEntity.ok(response);
     }
 
-
-
     // GET /api/candidates
     @GetMapping
     public ResponseEntity<ApiResponse<List<CandidateResponse>>> getAllCandidates() {
@@ -79,30 +77,16 @@ public class CandidateController {
 
     // GET /api/candidates/{id}/preview — stream PDF to browser
     @GetMapping("/{id}/preview")
-    public ResponseEntity<Resource> previewPdf(@PathVariable Long id) {
-        try {
-            String filePath = candidateService.getPdfPath(id);
+    public ResponseEntity<Void> previewPdf(@PathVariable Long id) {
+        String fileUrl = candidateService.getPdfPath(id);
 
-            if (filePath == null) {
-                return ResponseEntity.notFound().build();
-            }
-
-            Path path = Paths.get(filePath);
-            Resource resource = new UrlResource(path.toUri());
-
-            if (!resource.exists()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_PDF)
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "inline; filename=\"" + resource.getFilename() + "\"")
-                    .body(resource);
-
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+        if (fileUrl == null) {
+            return ResponseEntity.notFound().build();
         }
+
+        return ResponseEntity.status(302)
+                .header(HttpHeaders.LOCATION, fileUrl)
+                .build();
     }
 
     // DELETE /api/candidates/{id}

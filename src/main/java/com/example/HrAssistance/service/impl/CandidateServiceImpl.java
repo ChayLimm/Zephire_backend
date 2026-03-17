@@ -1,4 +1,5 @@
 package com.example.HrAssistance.service.impl;
+
 import com.example.HrAssistance.model.dto.request.CVUploadRequest;
 
 import com.example.HrAssistance.enums.CandidateSource;
@@ -11,14 +12,18 @@ import com.example.HrAssistance.model.dto.response.CandidateResponse;
 import com.example.HrAssistance.repositories.CandidateRepo;
 
 import com.example.HrAssistance.service.CandidateService;
+import com.example.HrAssistance.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import software.amazon.awssdk.services.s3.S3Client;
+
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -38,6 +43,8 @@ public class CandidateServiceImpl implements CandidateService {
     @Value("${app.upload.dir:uploads/}")
     private String uploadDir;
 
+    @Autowired
+    private StorageService storageService;
     // ─────────────────────────────────────────
     // Upload CV — full flow
     // ─────────────────────────────────────────
@@ -52,7 +59,7 @@ public class CandidateServiceImpl implements CandidateService {
         }
 
         // 3. Save PDF file to server
-        String filePath = saveFile(request.getFile());
+        String filePath = storageService.saveFile(request.getFile());
         if (filePath == null) {
             return ApiResponse.error("Failed to save PDF file");
         }
@@ -74,14 +81,14 @@ public class CandidateServiceImpl implements CandidateService {
 
         try {
             JsonNode node = objectMapper.readTree(cvJson);
-            name     = node.path("name").asText(null);
-            email    = request.getEmail(); //node.path("email").asText(null);
-            phone    = request.getPhone();/// node.path("phone").asText(null);
+            name = node.path("name").asText(null);
+            email = request.getEmail(); //node.path("email").asText(null);
+            phone = request.getPhone();/// node.path("phone").asText(null);
 //            domain   = node.path("domain").asText(null);
             position = request.getPosition(); //node.path("position").asText(null);
             expYears = request.getExpYears(); //node.path("exp_years").asInt(0);
-            skills   = node.path("skills").toString();
-            stack    = node.path("stack").toString();
+            skills = node.path("skills").toString();
+            stack = node.path("stack").toString();
         } catch (Exception e) {
             log.warn("⚠️ Could not parse some fields from cv_json: {}", e.getMessage());
         }
@@ -155,7 +162,7 @@ public class CandidateServiceImpl implements CandidateService {
         return candidateRepo.findById(id)
                 .map(candidate -> {
                     // Delete PDF file from server
-                    deleteFile(candidate.getFilePath());
+                    storageService.deleteFile(candidate.getFilePath());
                     // Delete from DB
                     candidateRepo.deleteById(id);
                     log.info("✅ Candidate deleted: {}", id);
@@ -184,43 +191,6 @@ public class CandidateServiceImpl implements CandidateService {
         return candidateRepo.findByDomain(domain);
     }
 
-    // ─────────────────────────────────────────
-    // Save file to disk
-    // ─────────────────────────────────────────
-    private String saveFile(MultipartFile file) {
-        try {
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            String fileName = System.currentTimeMillis()
-                    + "_" + file.getOriginalFilename();
-            Path filePath = uploadPath.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            log.info("✅ File saved: {}", filePath);
-            return filePath.toString();
-
-        } catch (IOException e) {
-            log.error("❌ Failed to save file: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    // ─────────────────────────────────────────
-    // Delete file from disk
-    // ─────────────────────────────────────────
-    private void deleteFile(String filePath) {
-        try {
-            if (filePath != null) {
-                Files.deleteIfExists(Paths.get(filePath));
-                log.info("✅ File deleted: {}", filePath);
-            }
-        } catch (IOException e) {
-            log.warn("⚠️ Could not delete file: {}", e.getMessage());
-        }
-    }
 
     // ─────────────────────────────────────────
     // Build compression prompt
@@ -231,7 +201,7 @@ public class CandidateServiceImpl implements CandidateService {
                 Be extremely concise. No full sentences, use keywords and short phrases only.
                 Infer the candidate domain: tech / sales / marketing / finance / hr / operations.
                 Return only valid JSON, no extra text, no markdown.
-                                
+                
                 FORMAT:
                 {
                   "name": "",
@@ -247,10 +217,10 @@ public class CandidateServiceImpl implements CandidateService {
                   "awards": ["title|year|result"],
                   "langs": ["language|level"]
                 }
-                                
+                
                 If sales/marketing also include:
                   "channels": [], "metrics": []
-                                
+                
                 RESUME:
                 """
                 + rawText;
@@ -286,9 +256,10 @@ public class CandidateServiceImpl implements CandidateService {
                         : null)
                 .build();
     }
+
     public ApiResponse<CandidateResponse> publicApply(MultipartFile file, CVUploadRequest request) {
 
-        String filePath = saveFile(file);
+        String filePath = storageService.saveFile(file);
         if (filePath == null) {
             return ApiResponse.error("Failed to save PDF file");
         }
