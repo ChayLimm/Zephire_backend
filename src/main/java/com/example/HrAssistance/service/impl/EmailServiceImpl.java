@@ -41,6 +41,7 @@ public class EmailServiceImpl implements EmailService {
                 message.setTo(payload.getEmail());
                 message.setSubject(payload.getSubject());
                 message.setText(payload.getBody());
+                message.setFrom("chengchhaylim@gmail.com");
                 mailSender.send(message);
 
                 // Save to DB
