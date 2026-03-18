@@ -50,7 +50,12 @@ public class CandidateServiceImpl implements CandidateService {
     // ─────────────────────────────────────────
     public ApiResponse<CandidateResponse> uploadCv(CVUploadRequest request) {
         // 1. Get current logged-in HR user
-        User currentUser = getCurrentUser();
+        User currentUser = null;
+        Object principal = SecurityContextHolder.getContext()
+                .getAuthentication().getPrincipal();
+        if (principal instanceof User user) {
+            currentUser = user;
+        }
 
         // 2. Extract text from PDF
         String rawText = pdfService.extractText(request.getFile());
