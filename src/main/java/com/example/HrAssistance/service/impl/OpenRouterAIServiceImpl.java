@@ -36,13 +36,13 @@ public class OpenRouterAIServiceImpl implements AIService {
             Map<String, Object> requestBody = Map.of(
                     "model", model,
                     "messages", List.of(
-                            Map.of("role", "user", "content", prompt)  // ✅ correct format
+                            Map.of("role", "user", "content", prompt)
                     )
             );
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(token);  // ✅ required for OpenRouter
+            headers.setBearerAuth(token);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 

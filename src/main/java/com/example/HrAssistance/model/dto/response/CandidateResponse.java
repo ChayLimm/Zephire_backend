@@ -48,6 +48,9 @@ public class CandidateResponse {
     @JsonProperty("file_name")
     private String fileName;
 
+    @JsonProperty("file_path")
+    private String filePath;
+
     @JsonProperty("cv_json")
     private String cvJson;             // full compressed JSON from LLM
 
@@ -74,6 +77,8 @@ public class CandidateResponse {
         candidate.setExpYears(this.expYears);
         candidate.setSource(this.source);
         candidate.setStatus(this.status);
+        candidate.setFileName(this.fileName);
+        candidate.setFilePath(this.filePath);
 
         // Convert List<String> to JSON string for skills and stack
         if (this.skills != null) {

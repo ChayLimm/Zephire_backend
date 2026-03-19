@@ -50,11 +50,17 @@ public class CandidateServiceImpl implements CandidateService {
     // ─────────────────────────────────────────
     public ApiResponse<CandidateResponse> uploadCv(CVUploadRequest request) {
         // 1. Get current logged-in HR user
+        var source = CandidateSource.HR_UPLOADED;
+        var status = CandidateStatus.APPROVED;
         User currentUser = null;
         Object principal = SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
         if (principal instanceof User user) {
             currentUser = user;
+        }
+        if(currentUser == null){
+            source = CandidateSource.SELF_APPLIED;
+            status = CandidateStatus.PENDING;
         }
 
         // 2. Extract text from PDF
@@ -113,6 +119,8 @@ public class CandidateServiceImpl implements CandidateService {
                 .cvRaw(rawText)
                 .cvJson(cvJson)
                 .uploadedBy(currentUser)
+                .status(status)
+                .source(source)
                 .build();
 
         Candidate saved = candidateRepo.save(candidate);
@@ -141,7 +149,7 @@ public class CandidateServiceImpl implements CandidateService {
     // Get all candidates
     // ─────────────────────────────────────────
     public ApiResponse<List<CandidateResponse>> getAllCandidates() {
-        List<Candidate> candidates = candidateRepo.findByStatus(CandidateStatus.APPROVED);
+        List<Candidate> candidates = candidateRepo.findByStatusOrderByUploadedAtDesc(CandidateStatus.APPROVED);
         if (candidates.isEmpty()) {
             return ApiResponse.error("No candidates found");
         }
@@ -254,6 +262,7 @@ public class CandidateServiceImpl implements CandidateService {
                 .position(candidate.getPosition())
                 .expYears(candidate.getExpYears())
                 .fileName(candidate.getFileName())
+                .filePath(candidate.getFilePath())
                 .cvJson(candidate.getCvJson())
                 .uploadedAt(candidate.getUploadedAt())
                 .uploadedBy(candidate.getUploadedBy() != null

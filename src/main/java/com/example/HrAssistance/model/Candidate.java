@@ -97,7 +97,7 @@ public class Candidate {
                 .cvJson(this.getCvJson())
                 .position(this.getPosition())
                 .expYears(this.getExpYears())
-                .fileName(this.getFileName())
+                .filePath(this.getFilePath())
                 .cvJson(this.getCvJson())
                 .uploadedAt(this.getUploadedAt())
                 .source(this.getSource())      // ← add

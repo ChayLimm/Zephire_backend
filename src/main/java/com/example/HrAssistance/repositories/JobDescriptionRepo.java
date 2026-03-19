@@ -10,4 +10,6 @@ import java.util.List;
 public interface JobDescriptionRepo extends JpaRepository<JobDescription, Long> {
     List<JobDescription> findByCreatedById(Long userId);
     List<JobDescription> findByField(String field);
+    List<JobDescription> findAllByOrderByCreatedAtDesc();
+
 }

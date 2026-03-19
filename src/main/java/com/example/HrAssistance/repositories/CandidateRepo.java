@@ -13,7 +13,7 @@ public interface CandidateRepo extends JpaRepository<Candidate, Long> {
     List<Candidate> findByDomain(String domain);
     List<Candidate> findByStatus(CandidateStatus status);
     List<Candidate> findByDomainAndExpYearsGreaterThanEqual(String domain, Integer expYears);
-
+    List<Candidate> findByStatusOrderByUploadedAtDesc (CandidateStatus status);
     // For chat — get all when domain is null
     @Query("SELECT c FROM Candidate c WHERE " +
             "(:domain IS NULL OR c.domain = :domain) AND " +

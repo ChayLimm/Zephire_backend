@@ -100,7 +100,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     // Get all JDs
     // ─────────────────────────────────────────
     public ApiResponse<List<JobDescriptionResponse>> getAllJds() {
-        List<JobDescription> jds = jobDescriptionRepo.findAll();
+        List<JobDescription> jds = jobDescriptionRepo.findAllByOrderByCreatedAtDesc();
 
         if (jds.isEmpty()) {
             return ApiResponse.error("No job descriptions found");
