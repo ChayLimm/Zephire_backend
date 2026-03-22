@@ -80,7 +80,7 @@ public class AuthServiceImpl implements AuthService {
         user.setAccountNonLocked(true);
         user.setCredentialsNonExpired(true);
         user.setRole(request.getRole());
-//        user.setDepartment(request.getDepartment());
+        //user.setDepartment(request.getDepartment());
         userRepo.save(user);
 
         final String token = jwtService.generateToken(user);

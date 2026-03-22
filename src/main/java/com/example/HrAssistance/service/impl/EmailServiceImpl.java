@@ -16,7 +16,16 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,19 +39,40 @@ public class EmailServiceImpl implements EmailService {
     private final EmailRepo emailRepo;
     private final CandidateRepo candidateRepo;
 
+    @Value("${brevo.token}")
+    private String brevoApiKey;
+
     @Override
     public void sendBulk(BulkEmailRequest request) {
         User currentUser = getCurrentUser();
 
         for (EmailPayload payload : request.getEmails()) {
             try {
-                // Send email
-                SimpleMailMessage message = new SimpleMailMessage();
-                message.setTo(payload.getEmail());
-                message.setSubject(payload.getSubject());
-                message.setText(payload.getBody());
-                message.setFrom("chengchhaylim@gmail.com");
-                mailSender.send(message);
+                // Build Brevo API request body
+                Map<String, Object> emailBody = new HashMap<>();
+                emailBody.put("sender", Map.of(
+                        "name", "Sok.HR",
+                        "email", "chengchhaylim@gmail.com"
+                ));
+                emailBody.put("to", List.of(Map.of(
+                        "email", payload.getEmail()
+                )));
+                emailBody.put("subject", payload.getSubject());
+                emailBody.put("htmlContent", payload.getBody());
+
+                // Send via Brevo API
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.set("api-key", brevoApiKey); // inject from config
+
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(emailBody, headers);
+
+                RestTemplate restTemplate = new RestTemplate();
+                ResponseEntity<String> response = restTemplate.postForEntity(
+                        "https://api.brevo.com/v3/smtp/email",
+                        entity,
+                        String.class
+                );
 
                 // Save to DB
                 Candidate candidate = candidateRepo.findById(payload.getCandidateId())
@@ -63,12 +93,11 @@ public class EmailServiceImpl implements EmailService {
                         .build();
 
                 emailRepo.save(email);
-                log.info("Email sent to {}", payload.getEmail());
+                log.info("Email sent to {} via Brevo", payload.getEmail());
 
             } catch (Exception e) {
                 log.error("Failed to send email to {}: {}", payload.getEmail(), e.getMessage());
 
-                // Save failed record
                 Email failed = Email.builder()
                         .toEmail(payload.getEmail())
                         .subject(payload.getSubject())

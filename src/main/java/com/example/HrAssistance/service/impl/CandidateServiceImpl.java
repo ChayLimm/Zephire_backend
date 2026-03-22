@@ -37,7 +37,7 @@ public class CandidateServiceImpl implements CandidateService {
 
     private final CandidateRepo candidateRepo;
     private final PdfServiceImpl pdfService;
-    private final OpenRouterAIServiceImpl aiService;
+    private final OllamaServiceImpl aiService;
     private final ObjectMapper objectMapper;
 
     @Value("${app.upload.dir:uploads/}")

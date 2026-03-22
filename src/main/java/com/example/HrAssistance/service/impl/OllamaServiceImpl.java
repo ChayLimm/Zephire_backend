@@ -23,7 +23,7 @@ public class OllamaServiceImpl implements AIService {
     @Value("${ollama.base-url:http://localhost:11434}")
     private String ollamaBaseUrl;
 
-    @Value("${ollama.model:llama3.2}")
+    @Value("${ollama.model:qwen2.5:14b-instruct}")
     private String model;
 
     // ─────────────────────────────────────────

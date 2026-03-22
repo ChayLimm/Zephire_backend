@@ -33,7 +33,7 @@ public class ChatServiceImpl implements ChatService {
     private final JobDescriptionRepo jobDescriptionRepo;
     private final CandidateRepo candidateRepo;
     private final CandidateServiceImpl candidateService;
-    private final OpenRouterAIServiceImpl aiService;
+    private final OllamaServiceImpl aiService;
 
     // ─────────────────────────────────────────
     // Send message — HR asks, AI answers
