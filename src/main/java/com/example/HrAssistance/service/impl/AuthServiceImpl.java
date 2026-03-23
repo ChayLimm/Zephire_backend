@@ -8,6 +8,7 @@ import com.example.HrAssistance.repositories.UserRepo;
 import com.example.HrAssistance.service.AuthService;
 import com.example.HrAssistance.service.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -44,24 +45,27 @@ public class AuthServiceImpl implements AuthService {
                             request.getPassword()
                     )
             );
-            if (authenticated.isAuthenticated()) {
-                User user = userRepo.findByEmail(request.getEmail()).orElseThrow(() -> new UsernameNotFoundException("User not found"));
-                final String token = jwtService.generateToken(user);
-                final String refreshToken = jwtService.getRefreshToken(user);
 
-                AuthResponse response = new AuthResponse();
-                response.setAccessToken(token);
-                response.setRefreshToken(refreshToken);
+            User user = userRepo.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-                SecurityContextHolder.getContext().setAuthentication(authenticated);
+            final String token = jwtService.generateToken(user);
+            final String refreshToken = jwtService.getRefreshToken(user);
 
-                return response;
-            }
-            throw new RuntimeException("Account not authenticated");
+            AuthResponse response = new AuthResponse();
+            response.setAccessToken(token);
+            response.setRefreshToken(refreshToken);
 
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            SecurityContextHolder.getContext().setAuthentication(authenticated);
+
+            return response;
+
+        } catch (BadCredentialsException e) {
+            throw new BadCredentialsException("Invalid email or password");
+        } catch (UsernameNotFoundException e) {
+            throw new UsernameNotFoundException("User not found");
         }
+        // Remove the broad catch (Exception e) — it swallows specific errors
     }
 
     @Override
@@ -88,16 +92,7 @@ public class AuthServiceImpl implements AuthService {
         AuthResponse response = new AuthResponse();
         response.setAccessToken(token);
         response.setRefreshToken(refreshToken);
-        // after register, user will use the access token to make request, so no need auto login
-//        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-//        Authentication authentication = new UsernamePasswordAuthenticationToken(
-//                userDetails,
-//                null,
-//                userDetails.getAuthorities()
-//        );
-//        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        response.setAccessToken("Registration successful");
         return response;
     }
 
